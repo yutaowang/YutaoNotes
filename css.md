@@ -1,4 +1,4 @@
-## 
+
 ## grid-template-columns, grid-template-rows
 ##
 
@@ -35,7 +35,7 @@ Example:
 
 Display: Matrix: 2 x 3 
 
-##
+
 ## @media 
 ## 
 /* Default styles for all devices */
