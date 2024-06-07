@@ -1,6 +1,6 @@
-== 
-== grid-template-columns, grid-template-rows
-==
+## 
+## grid-template-columns, grid-template-rows
+##
 
 "grid-template-columns" is a CSS property used in CSS Grid Layout. It defines the columns of a grid container. You can specify the size of each column in the grid with this property. Here are some key points about grid-template-columns:
 
@@ -35,9 +35,9 @@ Example:
 
 Display: Matrix: 2 x 3 
 
-==
-== @media 
-== 
+##
+## @media 
+## 
 /* Default styles for all devices */
 body {
     background-color: lightblue;
