@@ -1,0 +1,153 @@
+## Kafka + Flink + LLM 实时 AI 决策系统
+用 Kafka 接收实时事件，用 Flink 做实时特征计算和规则聚合，再把结果送给 LLM 或 AI agent，输出告警、建议、自动化动作。
+
+## 架构图
+[Apps / K8s / Logs / Metrics / Tickets]
+                |
+                v
+            Kafka Topics
+   (logs, metrics, events, tickets)
+                |
+                v
+             Flink Jobs
+  - filtering
+  - window aggregation
+  - anomaly scoring
+  - correlation
+  - feature generation
+                |
+        +-------+--------+
+        |                |
+        v                v
+ Feature Store       Alert/Event Bus
+   / Vector DB          / Rules
+        |                |
+        +-------+--------+
+                v
+         LLM / AI Decision Layer
+   - summarize incident
+   - suggest root cause
+   - generate remediation steps
+   - generate CLI / runbook / ticket reply
+                |
+                v
+     Dashboard / Slack / Jira / Automation
+
+
+## Kafka
+
+Kafka 是实时事件总线。
+
+它负责接收和缓冲数据流，比如：
+
+app_logs
+infra_metrics
+k8s_events
+deploy_events
+jira_tickets
+
+作用不是“算”，而是：
+
+解耦生产者和消费者
+支持高吞吐
+让数据可重放
+给 Flink 和下游系统提供统一输入
+
+## Flink
+Flink 是实时计算层。
+
+它负责：
+
+清洗日志
+滑动窗口统计
+异常检测
+多流 join
+生成特征
+
+例如：
+
+5 分钟内 error rate 是否飙升
+deploy 后 10 分钟内 latency 是否异常
+某 namespace 是否同时出现 pod restart + cpu spike + 5xx increase
+某类 ticket 是否与历史 SEV pattern 相似
+
+Flink 的价值在于：
+不是等数据存完再分析，而是数据一来就算。
+
+## LLM
+LLM 不是直接吃所有原始日志。
+
+更好的做法是：
+Flink 先把海量事件压缩成 高价值上下文，再交给 LLM。
+
+例如给 LLM 的输入不是 10 万行日志，而是：
+
+Service: checkout-api
+Cluster: prod-us-east-1
+Time window: last 10 min
+
+Signals:
+- error_rate increased from 0.3% to 8.4%
+- p95 latency increased from 220ms to 1800ms
+- deployment started 6 min ago
+- pod restarts observed on 3 replicas
+- related historical incidents: image pull timeout, DB connection pool exhaustion
+
+Question:
+Summarize the likely root cause and propose immediate remediation steps.
+
+这样：
+token 成本低
+hallucination 少
+输出更稳定
+
+: RAG / harness / context engineering 能力。
+
+
+## “实时 AI 决策”不是让 LLM 替你拍脑袋做决定。
+
+而是：
+
+第一步：Flink 实时发现模式
+
+比如：
+错误率暴增
+部署关联异常
+历史模式命中
+多信号同时触发
+
+第二步：LLM 解释和生成动作建议
+
+比如：
+根因摘要
+处置步骤
+kubectl / helm / SQL 命令草案
+面向工程师或 manager 的说明
+
+第三步：规则或 agent 执行动作
+
+比如：
+自动开 Jira
+发 Slack 告警
+执行 rollback
+scale out
+标记 incident severity
+
+所以它更准确地说是：
+real-time detection + AI-assisted decision support + optional automation
+
+## 直接把实时数据全扔给 LLM 有几个问题：
+
+吞吐扛不住
+token 成本太高
+延迟高
+噪音太多
+上下文不稳定
+幻觉风险高
+
+Kafka + Flink 先做“结构化压缩”，LLM 再做“理解和生成”。
+
+这是企业级架构最合理的分工：
+Kafka：搬运事件
+Flink：实时计算和筛选
+LLM：解释、决策建议、自然语言输出
