@@ -1,0 +1,468 @@
+
+## 一句话记忆版
+## RAG 提供知识，MCP 提供行动，Context Engineering 决定喂给模型什么，Harness Engineering 决定整个系统如何可靠地跑起来。
+
+## Production 级架构图
+# AI agent / RAG / MCP 系统架构图，从 Cloud / DevOps / OCI / 运维自动化 视角来画
+
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                              Users / Clients                        │
+│  Web UI / Chat UI / Slack / CLI / API / Internal Ops Portal         │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         API Gateway / Ingress                       │
+│   Auth / Rate Limit / Routing / TLS / WAF / Request Logging         │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Application / Agent Backend                     │
+│  FastAPI / Node / Go service                                        │
+│                                                                     │
+│  Responsibilities:                                                  │
+│  - session management                                               │
+│  - user auth context                                                │
+│  - request normalization                                            │
+│  - streaming response                                               │
+│  - audit / tracing / retries                                        │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Harness / Orchestration Layer                  │
+│                                                                     │
+│  ReAct loop / workflow engine / planner-executor-verifier           │
+│                                                                     │
+│  Responsibilities:                                                  │
+│  - decide whether to use RAG                                        │
+│  - decide whether to call tools                                     │
+│  - model routing                                                    │
+│  - fallback / timeout / guardrails                                  │
+│  - step orchestration                                               │
+└───────────────┬───────────────────────────────┬─────────────────────┘
+                │                               │
+                │                               │
+                ▼                               ▼
+┌─────────────────────────────┐      ┌───────────────────────────────┐
+│     Context Engineering     │      │       MCP / Tool Layer        │
+│                             │      │                               │
+│ - system prompt             │      │ - DB query tools              │
+│ - user memory               │      │ - ticket tools                │
+│ - conversation history      │      │ - K8s tools                   │
+│ - retrieved docs/logs       │      │ - cloud API tools             │
+│ - ranking / filtering       │      │ - email / Slack tools         │
+│ - token budget control      │      │ - shell / automation tools    │
+└───────────────┬─────────────┘      └───────────────┬───────────────┘
+                │                                    │
+                ▼                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Model Gateway                             │
+│                                                                     │
+│  Routes to different models:                                        │
+│  - reasoning model                                                  │
+│  - coding model                                                     │
+│  - cheap fast model                                                 │
+│  - embedding model                                                  │
+│                                                                     │
+│  Features:                                                          │
+│  - load balancing                                                   │
+│  - fallback                                                         │
+│  - quota / cost control                                             │
+│  - prompt / completion logging                                      │
+└───────────────┬─────────────────────────────────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                             LLM Layer                               │
+│                                                                     │
+│  OpenAI / local Ollama / vLLM / enterprise-hosted models            │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+        ───────────────── RAG DATA PLANE ─────────────────
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Ingestion / ETL Pipeline                      │
+│                                                                     │
+│  Sources:                                                           │
+│  - Confluence / Docs / PDFs                                         │
+│  - Jira / Tickets                                                   │
+│  - Logs / Metrics / Runbooks                                        │
+│  - Git repos / SOPs / incident reports                              │
+│                                                                     │
+│  Steps:                                                             │
+│  parse → clean → chunk → enrich metadata → embed → index            │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                ┌───────────────┼───────────────────────┐
+                │               │                       │
+                ▼               ▼                       ▼
+┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐
+│ Object Storage   │  │ Metadata Store   │  │ Vector DB / Search     │
+│ raw docs / logs  │  │ tags / ACL /     │  │ pgvector / Pinecone /  │
+│ snapshots        │  │ timestamps       │  │ OpenSearch / hybrid    │
+└──────────────────┘  └──────────────────┘  └────────────────────────┘
+
+
+        ─────────────── OPERATIONAL DATA PLANE ───────────────
+
+┌──────────────────┐  ┌──────────────────┐  ┌────────────────────────┐
+│ Relational DB    │  │ Cache / Redis    │  │ Message Queue          │
+│ users / sessions │  │ hot context      │  │ async jobs / retries   │
+│ audit / state    │  │ rate state       │  │ ingestion tasks        │
+└──────────────────┘  └──────────────────┘  └────────────────────────┘
+
+
+        ───────────────── GOVERNANCE / SECURITY ──────────────
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ Security / Governance / Reliability                                 │
+│                                                                     │
+│ - IAM / RBAC / tenancy isolation                                    │
+│ - secret manager / vault                                            │
+│ - PII redaction                                                     │
+│ - prompt injection defense                                          │
+│ - output policy checks                                              │
+│ - tool permission boundaries                                        │
+│ - audit logging                                                     │
+│ - observability / metrics / traces / alerts                         │
+│ - human approval for high-risk actions                              │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+## 6 Layers 
+
+1. Interface 层
+
+用户从：
+
+Web
+Chat
+Slack
+CLI
+API
+
+进入系统。
+
+这层本质上只是入口，不做复杂推理。
+
+2. Agent Backend 层
+
+这是你的主服务，比如：
+
+FastAPI
+Node.js
+Go service
+
+负责：
+
+接请求
+维护 session
+流式返回
+记录日志
+做鉴权
+
+这个层不要把“智能逻辑”写死太多。
+它更像 AI system 的 control plane entrypoint。
+
+
+3. Harness / Orchestration 层
+
+这是最关键的。
+
+它负责决定：
+
+要不要先做 RAG
+要不要调用 MCP tools
+用哪个模型
+失败怎么 fallback
+哪些步骤需要 verifier
+哪些工具需要人工审批
+
+这层就是你前面说的 harness engineering。
+
+你可以把它理解成：
+对 AI：像 Kubernetes scheduler + workflow engine
+对业务：像 Airflow / Temporal / Dagster 的智能版
+
+4. Context Engineering 层
+
+这层负责把模型喂好。
+
+包括：
+
+system prompt
+历史对话
+用户记忆
+检索出来的 logs / docs / runbooks
+token budget 控制
+relevance ranking
+核心目标：
+
+不是“塞越多越好”，而是
+给模型最相关、最可靠、最短的上下文。
+
+5. MCP / Tool 层
+
+这里是真正的“执行能力”。
+
+比如：
+
+查 Jira
+查日志
+查 Kubernetes
+查云资源
+执行 automation
+发邮件 / 发 Slack
+跑 SQL
+
+这层一定要有：
+
+明确输入输出 schema
+timeout
+retry
+permission boundary
+audit trail
+
+否则 production 很容易炸。
+
+
+6. Model Gateway + LLM 层
+
+不要让业务代码直接绑死某个模型。
+
+中间加一个 model gateway，统一做：
+
+模型路由
+fallback
+cost control
+tracing
+A/B testing
+
+例如：
+
+小问题 → 便宜快模型
+推理复杂 → reasoning model
+代码生成 → coder model
+embedding → embedding model
+
+这个设计你以后换 OpenAI / local / OCI GenAI / Ollama 时会轻松很多。
+
+
+## Production 级的 RAG 数据流:
+
+Source docs / logs / tickets
+→ parse
+→ chunk
+→ metadata enrich
+→ embedding
+→ vector index
+→ retrieval
+→ rerank
+→ inject into context
+→ answer
+
+
+这里最容易出问题的地方
+1. Chunking 不合理
+
+切太小：
+上下文断裂
+
+切太大：
+噪音太多
+
+2. Metadata 不完整
+
+没有这些元数据，检索质量会掉很多：
+source
+timestamp
+service name
+env
+cluster
+ticket id
+incident id
+severity
+
+3. 只做 vector search
+
+production 通常更适合：
+hybrid search
+keyword
+BM25
+vector
+metadata filter
+
+
+## 生产环境必须补上的模块
+
+很多 demo 到 production，差的就是下面这些。
+
+1. Guardrails
+
+至少要有：
+
+prompt injection defense
+tool call allowlist
+secret masking
+output validation
+policy enforcement
+
+例如：
+用户问一句：
+
+delete all pods
+
+不能直接执行。
+必须经过：
+
+intent classification
+risk policy
+approval gate
+
+2. Observability
+
+AI 系统没有 observability，基本没法运维。
+
+你至少要监控：
+
+request latency
+model latency
+retrieval latency
+tool failure rate
+token usage
+hallucination / bad answer rate
+tool invocation frequency
+approval rate
+fallback rate
+你熟悉的思维可以直接套进来：
+
+AI system 也是 distributed system。
+
+3. Evaluation
+
+production 不只是上线，还要持续评估。
+
+分三类：
+
+Offline eval
+检索命中率
+answer correctness
+groundedness
+tool success rate
+Online eval
+thumbs up/down
+task completion rate
+escalation rate
+mean time to resolution
+Regression eval
+
+每次改 prompt / 模型 / chunking，都要回归测试。
+
+
+4. Human-in-the-loop
+
+高风险动作一定要人工审批：
+
+改生产配置
+执行删除
+发外部邮件
+改权限
+操作账单/财务
+批量重启
+
+最佳实践：
+
+read-only 自动化可以高一些
+write action 必须更谨慎
+
+
+## 如果放到 OCI / Kubernetes 上，推荐拆分
+核心服务
+agent-api
+orchestrator
+retrieval-service
+tool-gateway
+model-gateway
+ingestion-worker
+evaluation-service
+
+基础设施
+OKE
+OCI Load Balancer / API Gateway
+OCI Vault
+OCI Logging / Monitoring
+Object Storage
+Autonomous DB / PostgreSQL
+Redis
+Queue / Streaming
+
+
+
+## 简化版本
+                   ┌────────────────────┐
+                   │   User / Client    │
+                   └─────────┬──────────┘
+                             ▼
+                   ┌────────────────────┐
+                   │   API / Backend    │
+                   └─────────┬──────────┘
+                             ▼
+                   ┌────────────────────┐
+                   │ Harness / Workflow │
+                   └──────┬─────┬───────┘
+                          │     │
+                ┌─────────┘     └─────────┐
+                ▼                         ▼
+      ┌──────────────────┐      ┌──────────────────┐
+      │ Context Eng +    │      │ MCP Tool Layer   │
+      │ RAG Retrieval    │      │ external actions │
+      └────────┬─────────┘      └────────┬─────────┘
+               │                         │
+               ▼                         ▼
+      ┌──────────────────┐      ┌──────────────────┐
+      │ Vector / Search  │      │ DB / K8s / APIs  │
+      │ Docs / Logs      │      │ Tickets / Email  │
+      └────────┬─────────┘      └────────┬─────────┘
+               └────────────┬────────────┘
+                            ▼
+                   ┌────────────────────┐
+                   │   Model Gateway    │
+                   └─────────┬──────────┘
+                             ▼
+                   ┌────────────────────┐
+                   │        LLM         │
+                   └────────────────────┘
+
+Phase 1
+
+RAG + read-only tools
+
+查 logs
+查 tickets
+查 runbooks
+给 root cause 建议
+
+Phase 2
+
+加入 action tools
+
+查 K8s
+查 deployment
+查 config
+生成 remediation command
+
+Phase 3
+
+半自动执行
+
+verifier
+approval gate
+canary action
+rollback strategy
+
+这样最符合 production 路径，也最容易写进简历和面试故事里。
+
