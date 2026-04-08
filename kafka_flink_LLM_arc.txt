@@ -1,3 +1,5 @@
+## Real-Time AI Incident Intelligence Platform
+
 ## Kafka + Flink + LLM 实时 AI 决策系统
 用 Kafka 接收实时事件，用 Flink 做实时特征计算和规则聚合，再把结果送给 LLM 或 AI agent，输出告警、建议、自动化动作。
 
