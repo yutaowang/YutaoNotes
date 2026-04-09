@@ -1,0 +1,44 @@
+MCP（Model Context Protocol）= LLM 调用工具的标准协议
+
+让模型可以：
+
+查数据库
+查日志
+调 K8s
+发请求
+做自动化
+
+
+FastAPI  给 Web API
+FastMCP  给 LLM / Agent 的 tool API
+
+
+Example: 
+
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("PersonalAutomation")
+
+@mcp.tool()
+def query_db(db_path: str, query: str) -> str:
+    pass
+
+把 query_db 变成一个 MCP tool
+自动暴露给 LLM / agent
+不需要你手写协议层
+
+
+
+## FastMCP 扮演了一个 Tool Gateway 的角色！
+
+LLM / Agent
+    ↓
+MCP Protocol
+    ↓
+FastMCP server   ←（你写的）
+    ↓
+Your tools (Python functions)
+    ↓
+DB / K8s / APIs
+
+
