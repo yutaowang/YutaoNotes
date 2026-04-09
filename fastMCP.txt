@@ -1,7 +1,8 @@
 MCP（Model Context Protocol）= LLM 调用工具的标准协议
 
-让模型可以：
+FastMCP is a lightweight framework that allows developers to expose Python functions as MCP-compatible tools, enabling LLM agents to safely interact with external systems such as databases, APIs, and infrastructure.
 
+让模型可以：
 查数据库
 查日志
 调 K8s
